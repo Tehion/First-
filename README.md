@@ -1,49 +1,60 @@
- (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
-diff --git a/README.md b/README.md
-new file mode 100644
-index 0000000000000000000000000000000000000000..bac28d01d018ce8a980f676a55ee026ccf7f768a
---- /dev/null
-+++ b/README.md
-@@ -0,0 +1,39 @@
-+# Lead Lookalike API
-+
-+Minimalna aplikacja API do wyszukiwania leadów z wykorzystaniem metody look‑a‑like.
-+Serwis przechowuje leady w pamięci procesu i zwraca podobne rekordy na podstawie
-+prostej funkcji podobieństwa (branża, lokalizacja, rozmiar firmy, tagi).
-+
-+## Funkcje
-+- Dodawanie leadów
-+- Lista leadów
-+- Wyszukiwanie look‑a‑like względem podanego leada
-+
-+## Szybki start
-+
-+```bash
-+python -m venv .venv
-+source .venv/bin/activate
-+pip install -r requirements.txt
-+uvicorn app.main:app --reload
-+```
-+
-+## Przykładowe użycie
-+
-+```bash
-+curl -X POST http://localhost:8000/leads \
-+  -H 'Content-Type: application/json' \
-+  -d '{"name":"Acme","industry":"ecommerce","location":"PL","company_size":120,"tags":["b2b","saas"]}'
-+
-+curl -X POST http://localhost:8000/leads \
-+  -H 'Content-Type: application/json' \
-+  -d '{"name":"Beta","industry":"ecommerce","location":"PL","company_size":90,"tags":["saas","retail"]}'
-+
-+curl -X POST http://localhost:8000/lookalike \
-+  -H 'Content-Type: application/json' \
-+  -d '{"seed":{"industry":"ecommerce","location":"PL","company_size":100,"tags":["saas"]},"limit":5}'
-+```
-+
-+## Uwagi
-+Aplikacja jest przykładowa i gotowa do podmiany warstwy przechowywania (np. baza
-+PostgreSQL + wektorowe podobieństwo) oraz rozbudowy funkcji scoringu.
- 
-EOF
-)
+# Competitor Monitor
+
+Internal tool for automated competitor monitoring across European e-commerce markets.
+Tracks prices, promotions, and narrative shifts for selected competitors — replacing manual weekly observation by the e-commerce team.
+
+## Architecture (Phase 0 skeleton)
+
+```
+competitor_monitor/
+├── config/          # Settings, competitor definitions, market configs
+├── crawler/         # Playwright-based web crawler (JS-heavy sites, anti-bot)
+├── extractors/      # Claude-powered structured data extraction
+│   ├── price_extractor.py   # SKU price + stock status
+│   └── promo_extractor.py   # Homepage banners + campaigns
+├── detectors/       # Change detection + importance scoring (HIGH/MEDIUM/LOW)
+├── reporters/       # HTML email digest
+├── scheduler/       # Full monitoring cycle orchestration
+└── storage/         # SQLAlchemy models + async SQLite/PostgreSQL
+```
+
+## Quick start
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+playwright install chromium
+
+cp .env.example .env
+# Edit .env — set ANTHROPIC_API_KEY, email settings, competitors
+```
+
+Add your competitors and SKUs in `competitor_monitor/config/settings.py` (COMPETITORS list).
+
+```bash
+# Initialise the database
+python main.py initdb
+
+# Run one monitoring cycle now (output goes to email or stdout)
+python main.py run
+
+# Start the daily scheduler (default: 07:00)
+python main.py schedule
+```
+
+## Phases
+
+| Phase | Scope |
+|-------|-------|
+| **0 (current)** | Architecture skeleton, crawler, LLM extractors, change detection, email |
+| **1** | 2 German competitors, 10–20 SKUs, validated against bigboxx.de manual reports |
+| **2** | New/discontinued products, blog monitoring, web dashboard, noise scoring |
+| **3** | Narrative analysis, AI executive summaries, Google/Meta ad monitoring |
+| **4** | Multi-market (PL, NL, AT, BE), cross-country comparisons |
+
+## Key design decisions
+
+- **LLM extraction over CSS selectors** — Claude reads page text semantically, so layout changes on competitor sites don't break the extractor.
+- **Importance scoring** — every detected change is rated HIGH / MEDIUM / LOW to filter noise before delivery.
+- **Reliability over features** — each phase is independently useful; new features are added only after previous ones are stable.
